@@ -66,39 +66,47 @@ def fetch_user_list_below_exp_score(expScore, days):
         exp_score_str = "poor,fair"
     else:
         exp_score_str = "poor,fair,good"
-
-    url = "https://api.sase.paloaltonetworks.com/adem/telemetry/v2/measure/agent/score?timerange="+last_n_days_str+"&group=en.user,en.endpoint&endpoint-type=muAgent&result-filter=Score.application=="+exp_score_str+"&response-type=grouped-summary"
-    header = {
-           "prisma-tenant": tsg
-    }
-    sdk._session.headers.update(header)
-
-    resp = sdk.rest_call(url=url, method="GET")
-    try:
-        pass
-        #prisma_sase.jd_detailed(resp)
-    except:
-        print("No data found.")
-        exit(0)
    
-    #print("_________________________________________________________________________________________________________________")
-    #print("                                                  OUTPUT                                                         ")
-    #print("_________________________________________________________________________________________________________________")
+    final_collection_list = [] 
+    page_num = 0
+    data_found = True
     
-    #print(resp.json()) 
-    resp = resp.json()
-    try: 
-        collection_list = resp["collection"]
-        #print(collection_list)
-    except:
-        print("No ADEM Data found for users with experience score less than {} for the past {} days".format(exp_score_str, days))
-        exit(0)  
+    while True:
+        collection_list = []
+        pagination_str = "&pagination=page=="+str(page_num)+";limit==50;sortBy==application;sortOrder==asc"
+        url = "https://api.sase.paloaltonetworks.com/adem/telemetry/v2/measure/agent/score?timerange="+last_n_days_str+"&group=en.user,en.endpoint&endpoint-type=muAgent&result-filter=Score.application=="+exp_score_str+"&response-type=grouped-summary"+pagination_str
+        header = {
+               "prisma-tenant": tsg
+        }
+        sdk._session.headers.update(header)
 
+        resp = sdk.rest_call(url=url, method="GET")
+        try:
+            pass
+            #prisma_sase.jd_detailed(resp)
+        except:
+            print("No data found.")
+            break
+   
+    
+        #print(resp.json()) 
+        resp = resp.json()
+        try: 
+            collection_list = resp["collection"]
+            final_collection_list += collection_list
+            #print(collection_list)
+            if collection_list == []:
+                break
+        except:
+            print("No ADEM Data found for users with experience score less than {} for the past {} days".format(exp_score_str, days))
+            break  
+        
+        page_num += 1
 
     Header = ["Users", "Experience Score"]
     RList = []
     index = 0
-    for collection in collection_list:
+    for collection in final_collection_list:
         #print(collection)
         user = collection["id"]["user"]
         experience_score_collection = collection["average"]["application"]
